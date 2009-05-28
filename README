@@ -42,7 +42,7 @@ DESCRIPTION
         processed.
 
     catch BLOCK
-    catch ([[TYPE] $VAR] [where BLOCK]) BLOCK
+    catch ([[CLASS] $VAR] [where BLOCK]) BLOCK
         Catches and processes (using given BLOCK) exception that
         (optionally) matches some conditions. Rules to determine catch
         handler are following:
@@ -54,10 +54,10 @@ DESCRIPTION
                   First matched block is executed and the search is stopped
 
         *
-                  If exception is not an object, then any condition with TYPE definition is skipped
+                  If exception is not an object, then any condition with CLASS definition is skipped
 
         *
-                  If condition has TYPE, then B<$@->isa(TYPE)> is checked for true value
+                  If condition has CLASS, then B<$@->isa(CLASS)> is checked for true value
 
         *
                   If condition has 'where BLOCK' part, then BLOCK is checked for true result, with B<$_> assigned to caught exception
@@ -78,6 +78,33 @@ DESCRIPTION
 
         Note: if exception was generated inside a "catch" handler, than in
         $@ would be new one, not original from a "try" block.
+
+        Note: "exit" and unhandled signals leads to immidiate program
+        termination (latter even don't allow global destruction to happen) -
+        in these cases, "finally" is not called.
+
+    return EXPRESSION
+    "return" behaviour is modifiyed, so when you call it inside
+    "try"/"catch", it returns not from "try" block, but from the sub "try"
+    was inside.
+
+    Note: this does not apply to finally block.
+
+    Note: if both "catch" and "try" uses "return", than value from last
+    "return" is used (but you may ommit "return" in "catch" block, then
+    return value is left unchanged).
+
+    Note: argument for return is executed in the context of sub above "try".
+
+    Example:
+
+            sub test{
+                    try{
+                            return map { $_ * 2 } @_;
+                    }
+            }
+            $a = test(1, 2, 3);     #$a = 3
+            @a = test(1, 2, 3);     #@a = (2, 4, 6)
 
 CONFIGURATION
     When importing Exception::SEH to your module, you can specify one or
@@ -105,14 +132,25 @@ CONFIGURATION
         "finally" blocks.
 
     -noret
+        Tells Exception::SEH not to install "return" hook. This makes "try"
+        blocks behave like evals, and context for "return" is determined by
+        context of "try", not by context of sub, containing "try".
 
 DIAGNOSTICS
     All compile-time discovered errors are raised through "Carp::croak" with
     (hopefully) meaningful description.
 
 CAVEATS
-    Currently, 3 routines - try, catch, finally - are injected into caller's
-    namespace. This may affect your existing code.
+    Currently, three subroutines - try, catch, finally - are injected into
+    caller's namespace.
+
+    Currently, it's impossible to use any other module that hooks OP_RETURN
+    OP on XS level - results are unpredictable. This may be fixed in future
+    releases.
+
+    Currently, it's probably unsafe to place "try"/"catch" blocks around
+    "use"/"catch". This needs further testing, and may be fixed in future
+    releases.
 
 SEE ALSO
     TryCatch

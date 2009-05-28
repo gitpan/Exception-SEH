@@ -18,7 +18,7 @@ BEGIN{
 	}
 }
 
-our $VERSION = '0.01';
+our $VERSION = '0.01001';
 $Carp::Internal{'Exception::SEH'}++;
 $Carp::Internal{'Devel::Declare'}++;
 
@@ -91,7 +91,6 @@ sub parse_try{
 
 	if ((my $token = $parser->get_word()) ne 'try'){
 		return;
-		#die "Started parsing try, but got $token instead";
 	}
 
 	$parser->skip_word();
@@ -117,7 +116,6 @@ sub parse_finally{
 
 	if ((my $token = $parser->get_word()) ne 'finally'){
 		return;
-		#die "started parsing finally, but got $token instead";
 	}
 
 	$parser->skip_word();
@@ -146,7 +144,6 @@ sub parse_catch{
 
 	if ((my $token = $parser->get_word()) ne 'catch'){
 		return;
-		#die "Started parsing catch, but got $token instead";
 	}
 
 	$parser->skip_word();
@@ -222,24 +219,11 @@ sub try($&@) {
 	my $opts = $OPTS{scalar caller()};
 	local $SIG{__DIE__} = 'DEFAULT' if $opts->{'-nosig'};
 
-=head1
-	use Data::Dumper;
-	print STDERR "ok", "\n" if UP SUB UP SUB == CALLER 3;
-	print STDERR CALLER(1), "\n";
-	print STDERR CALLER(2), "\n";
-	print STDERR CALLER(3), "\n";
-	print STDERR SUB(UP), "\n";
-	print STDERR SUB, "\n";
-	print STDERR UP(SUB), "\n";
-	print STDERR EVAL, "\n";
-	print STDERR UP(EVAL), "\n";
-=cut
 	#for unwind
 	my $is_top_try = 0;
 
 	if (!defined(EVAL) || EVAL != CALLER 2){	#we're inside top try
 		$is_top_try = 1;
-#		print STDERR "top\n";
 	}
 	local $params = shift;
 	my $code = shift;
@@ -252,16 +236,9 @@ sub try($&@) {
 
 	my $cx = $is_top_try ? UP SUB : EVAL;
 	my $context = $opts->{'-noret'} ? wantarray : want_at($cx);
-=head1
-use Game::Logger qw(:all);
-if (1 || !$is_top_try){
-	stacktrace 10;
-#	exit 0;
-}
-=cut
+
 	$@ = undef;
 	my @result;
-#	print STDERR Dumper($context);
 	if ($context){
 		@result = eval {
 			$code->();
@@ -357,21 +334,18 @@ if (1 || !$is_top_try){
 		die $err;
 	}
 
-#	print STDERR Dumper(\@result);
-#	print STDERR "need_unwind = $need_unwind\n";
-
 	if($opts->{'-noret'} || !$need_unwind){
 #		print STDERR "normal return\n";
 		$need_unwind = 0;
 		return wantarray ? @result : $result[0];
 
 	}elsif($need_unwind){
-#		print STDERR "unwind to $cx\n";
 		$need_unwind = 0 if $is_top_try;
 		unwind +($context ? @result : $result[0]) => $cx;
 
 	}else{
-		die 'wtf??';
+		require Carp;
+		Carp::croak 'Cannot determine return point';
 	}
 }
 

@@ -166,7 +166,7 @@ sub semicolomn_injector{
 					&&
 				$Exception::SEH::parse_catch_called
 			){
-#				print STDERR "match\n";
+				print STDERR "match\n" if DEBUG;
 				$parser->inject('));');
 			}else{
 				$parser->inject(');');

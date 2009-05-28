@@ -1,4 +1,7 @@
 Revision history for Exception::SEH.
 
-0.01  2009-05-28
-	- initial release
+0.01	2009-05-28
+		- initial release
+
+0.0101	2009-05-28
+		- removed code left from debugging
