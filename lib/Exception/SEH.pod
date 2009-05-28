@@ -1,0 +1,226 @@
+=head1 NAME
+
+Exception::SEH - rich try/catch/finally semantics without source filtering
+
+=head1 SYNOPSIS
+
+	use Exception::SEH;
+	try {
+		<...> or die YourException;
+	} catch (SomeException $e) {
+		<catch code>
+	} catch (YourException $e where { $_->param > 10 }) {
+		log($e->message);
+	} finally {
+		<cleanup code>
+	}
+
+=head1 FEATURES
+
+=over 2
+
+=item *
+
+	Rich catch syntax
+
+=item *
+
+	No need for trailing ; after try/catch/finally sequence
+
+=item *
+
+	return from try/catch - returns from subroutine, not just try/catch block
+
+=item *
+
+	finally called in all cases (even after return)
+
+=item *
+
+	@_ available for try block
+
+=item *
+
+	Nested try/catch
+
+=item *
+
+	Not a source filter (magic for syntax is provided by L<Devel::Declare>)
+
+=back
+
+=head1 DESCRIPTION
+
+=over 4
+
+=item try BLOCK
+
+Evaluates BLOCK, allowing any exceptions inside it to be caught and processed.
+
+=item catch BLOCK
+
+=item catch ([[CLASS] $VAR] [where BLOCK]) BLOCK
+
+Catches and processes (using given BLOCK) exception that (optionally) matches
+some conditions. Rules to determine catch handler are following:
+
+=over 2
+
+=item *
+
+	Search is performed from beginning to end of 'catches' list
+
+=item *
+
+	First matched block is executed and the search is stopped
+
+=item *
+
+	If exception is not an object, then any condition with CLASS definition is skipped
+
+=item *
+
+	If condition has CLASS, then B<$@->isa(CLASS)> is checked for true value
+
+=item *
+
+	If condition has 'where BLOCK' part, then BLOCK is checked for true result, with B<$_> assigned to caught exception
+
+=item *
+
+	catch BLOCK, catch () BLOCK, catch ($e) BLOCK are all the same and captures all possible exceptions
+
+=item *
+
+	If no condition matches throwed exception, then it's re-thrown (after C<finally> is done)
+
+=back
+
+Inside BLOCK after C<catch> exception is available as B<$@> (always) and also as $VAR (lexical to BLOCK),
+if it was specified in C<catch> signature.
+
+=item finally BLOCK
+
+Finally block is always executed after either C<try> or C<catch>. Exception in it is available as B<$@>.
+
+Note: if exception was generated inside a C<catch> handler, than in B<$@> would be new one, not
+original from a C<try> block.
+
+Note: C<exit> and unhandled signals leads to immidiate program termination (latter even don't allow
+global destruction to happen) - in these cases, C<finally> is B<not> called.
+
+=back
+
+=item return EXPRESSION
+
+C<return> behaviour is modifiyed, so when you call it inside C<try>/C<catch>, it returns not from 
+C<try> block, but from the sub C<try> was inside.
+
+Note: this does not apply to finally block.
+
+Note: if both C<catch> and C<try> uses C<return>, than value from last C<return> is used (but you
+may ommit C<return> in C<catch> block, then return value is left unchanged).
+
+Note: argument for return is executed in the context of sub above C<try>.
+
+Example:
+
+	sub test{
+		try{
+			return map { $_ * 2 } @_;
+		}
+	}
+	$a = test(1, 2, 3);	#$a = 3
+	@a = test(1, 2, 3);	#@a = (2, 4, 6)
+
+=back
+
+=head1 CONFIGURATION
+
+When importing L<Exception::SEH> to your module, you can specify
+one or more of the following keywords: B<-nosig> B<-noret> B<-safetry>, which change default
+behaviour in some way. These options are tracked on per-package basis.
+
+	use Exception::SEH -nosig, -safetry;
+
+=over 4
+
+=item -nosig
+
+By default, L<Exception::SEH> doesn't play with $SIG{__DIE__}, so your handler
+is normally called. But if you need to suppress it inside try/catch/finally blocks,
+you can import C<-nosig>.
+
+Note: if exception is re-thrown after C<finally> block, __DIE__ handler is
+always suppressed for that moment (so it is called only once
+for each exception - at first occurence).
+
+=item -safetry
+
+This options changes behaviour for uncaught exceptions after C<try> block.
+By default, they're re-thrown, but with this option enabled C<try> blocks are always safe
+ - just like C<eval>.
+
+Note: this doesn't refer to exceptions occured in a C<catch> and C<finally> blocks.
+
+=item -noret
+
+Tells L<Exception::SEH> not to install C<return> hook. This makes C<try> blocks behave like
+evals, and context for C<return> is determined by context of C<try>, not by context of sub,
+containing C<try>.
+
+=back
+
+=head1 DIAGNOSTICS
+
+All compile-time discovered errors are raised through C<Carp::croak>
+with (hopefully) meaningful description.
+
+=head1 CAVEATS
+
+Currently, three subroutines - try, catch, finally - are injected into caller's namespace.
+
+Currently, it's impossible to use any other module that hooks B<OP_RETURN> OP on XS level -
+results are unpredictable. This may be fixed in future releases.
+
+Currently, it's probably unsafe to place C<try>/C<catch> blocks around C<use>/C<catch>.
+This needs further testing, and may be fixed in future releases.
+
+=head1 SEE ALSO
+
+L<TryCatch>
+
+Similar semantics, but it takes the whole L<Moose> with itself - often too much weight.
+Currently lacks finally block and B<@_> access inside try{}. But still, decent choice.
+
+L<Exception::Class::TryCatch>
+
+Ugly syntax. Only L<Exception::Class>-derived exceptions.
+
+L<Exception::Class::TCF>
+
+Better syntax. Lacks exception lexical in try block, returns from try{} block.
+Still only L<Exception::Class>-derived exceptions.
+
+L<Error::TryCatch>
+
+Source filter. No finally{} call after return() from try.
+
+L<Error>
+
+"Error's syntactic sugar tends to break." (c)
+
+=head1 AUTHOR
+
+Sergey Aleynikov <sergey.aleynikov@gmail.com>
+
+=head1 LICENSE
+
+Copyright (c) 2009 by Sergey Aleynikov.
+This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+
+Some part for parser are taken from L<Devel::Declare::Context::Simple>, (c) Rhesa Rozendaal (?).
+
+Idea how to set up return hook - L<TryCatch>, (c) Ash Berlin.
+
+=cut

@@ -1,0 +1,153 @@
+NAME
+    Exception::SEH - rich try/catch/finally semantics without source
+    filtering
+
+SYNOPSIS
+            use Exception::SEH;
+            try {
+                    <...> or die YourException;
+            } catch (SomeException $e) {
+                    <catch code>
+            } catch (YourException $e where { $_->param > 10 }) {
+                    log($e->message);
+            } finally {
+                    <cleanup code>
+            }
+
+FEATURES
+    *
+              Rich catch syntax
+
+    *
+              No need for trailing ; after try/catch/finally sequence
+
+    *
+              return from try/catch - returns from subroutine, not just try/catch block
+
+    *
+              finally called in all cases (even after return)
+
+    *
+              @_ available for try block
+
+    *
+              Nested try/catch
+
+    *
+              Not a source filter (magic for syntax is provided by L<Devel::Declare>)
+
+DESCRIPTION
+    try BLOCK
+        Evaluates BLOCK, allowing any exceptions inside it to be caught and
+        processed.
+
+    catch BLOCK
+    catch ([[TYPE] $VAR] [where BLOCK]) BLOCK
+        Catches and processes (using given BLOCK) exception that
+        (optionally) matches some conditions. Rules to determine catch
+        handler are following:
+
+        *
+                  Search is performed from beginning to end of 'catches' list
+
+        *
+                  First matched block is executed and the search is stopped
+
+        *
+                  If exception is not an object, then any condition with TYPE definition is skipped
+
+        *
+                  If condition has TYPE, then B<$@->isa(TYPE)> is checked for true value
+
+        *
+                  If condition has 'where BLOCK' part, then BLOCK is checked for true result, with B<$_> assigned to caught exception
+
+        *
+                  catch BLOCK, catch () BLOCK, catch ($e) BLOCK are all the same and captures all possible exceptions
+
+        *
+                  If no condition matches throwed exception, then it's re-thrown (after C<finally> is done)
+
+        Inside BLOCK after "catch" exception is available as $@ (always) and
+        also as $VAR (lexical to BLOCK), if it was specified in "catch"
+        signature.
+
+    finally BLOCK
+        Finally block is always executed after either "try" or "catch".
+        Exception in it is available as $@.
+
+        Note: if exception was generated inside a "catch" handler, than in
+        $@ would be new one, not original from a "try" block.
+
+CONFIGURATION
+    When importing Exception::SEH to your module, you can specify one or
+    more of the following keywords: -nosig -noret -safetry, which change
+    default behaviour in some way. These options are tracked on per-package
+    basis.
+
+            use Exception::SEH -nosig, -safetry;
+
+    -nosig
+        By default, Exception::SEH doesn't play with $SIG{__DIE__}, so your
+        handler is normally called. But if you need to suppress it inside
+        try/catch/finally blocks, you can import "-nosig".
+
+        Note: if exception is re-thrown after "finally" block, __DIE__
+        handler is always suppressed for that moment (so it is called only
+        once for each exception - at first occurence).
+
+    -safetry
+        This options changes behaviour for uncaught exceptions after "try"
+        block. By default, they're re-thrown, but with this option enabled
+        "try" blocks are always safe - just like "eval".
+
+        Note: this doesn't refer to exceptions occured in a "catch" and
+        "finally" blocks.
+
+    -noret
+
+DIAGNOSTICS
+    All compile-time discovered errors are raised through "Carp::croak" with
+    (hopefully) meaningful description.
+
+CAVEATS
+    Currently, 3 routines - try, catch, finally - are injected into caller's
+    namespace. This may affect your existing code.
+
+SEE ALSO
+    TryCatch
+
+    Similar semantics, but it takes the whole Moose with itself - often too
+    much weight. Currently lacks finally block and @_ access inside try{}.
+    But still, decent choice.
+
+    Exception::Class::TryCatch
+
+    Ugly syntax. Only Exception::Class-derived exceptions.
+
+    Exception::Class::TCF
+
+    Better syntax. Lacks exception lexical in try block, returns from try{}
+    block. Still only Exception::Class-derived exceptions.
+
+    Error::TryCatch
+
+    Source filter. No finally{} call after return() from try.
+
+    Error
+
+    "Error's syntactic sugar tends to break." (c)
+
+AUTHOR
+    Sergey Aleynikov <sergey.aleynikov@gmail.com>
+
+LICENSE
+    Copyright (c) 2009 by Sergey Aleynikov. This program is free software;
+    you can redistribute it and/or modify it under the same terms as Perl
+    itself.
+
+    Some part for parser are taken from Devel::Declare::Context::Simple, (c)
+    Rhesa Rozendaal (?).
+
+    Idea how to set up return hook - TryCatch, (c) Ash Berlin.
+
