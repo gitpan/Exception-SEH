@@ -15,26 +15,20 @@ SYNOPSIS
             }
 
 FEATURES
-    *
-              Rich catch syntax
+    * Rich catch syntax
 
-    *
-              No need for trailing ; after try/catch/finally sequence
+    * No need for trailing ; after try/catch/finally sequence
 
-    *
-              return from try/catch - returns from subroutine, not just try/catch block
+    * return from try/catch - returns from subroutine, not just try/catch
+      block
 
-    *
-              finally called in all cases (even after return)
+    * finally called in all cases (even after return)
 
-    *
-              @_ available for try block
+    * @_ available for try block
 
-    *
-              Nested try/catch
+    * Nested try/catch
 
-    *
-              Not a source filter (magic for syntax is provided by L<Devel::Declare>)
+    * Not a source filter (magic for syntax is provided by Devel::Declare)
 
 DESCRIPTION
     try BLOCK
@@ -47,26 +41,24 @@ DESCRIPTION
         (optionally) matches some conditions. Rules to determine catch
         handler are following:
 
-        *
-                  Search is performed from beginning to end of 'catches' list
+        * Search is performed from beginning to end of 'catches' list
 
-        *
-                  First matched block is executed and the search is stopped
+        * First matched block is executed and the search is stopped
 
-        *
-                  If exception is not an object, then any condition with CLASS definition is skipped
+        * If exception is not an object, then any condition with CLASS
+          definition is skipped
 
-        *
-                  If condition has CLASS, then B<$@->isa(CLASS)> is checked for true value
+        * If condition has CLASS, then $@-isa(CLASS)> is checked for true
+          value
 
-        *
-                  If condition has 'where BLOCK' part, then BLOCK is checked for true result, with B<$_> assigned to caught exception
+        * If condition has 'where BLOCK' part, then BLOCK is checked for
+          true result, with $_ assigned to caught exception
 
-        *
-                  catch BLOCK, catch () BLOCK, catch ($e) BLOCK are all the same and captures all possible exceptions
+        * catch BLOCK, catch () BLOCK, catch ($e) BLOCK are all the same and
+          captures all possible exceptions
 
-        *
-                  If no condition matches throwed exception, then it's re-thrown (after C<finally> is done)
+        * If no condition matches throwed exception, then it's re-thrown
+          (after "finally" is done)
 
         Inside BLOCK after "catch" exception is available as $@ (always) and
         also as $VAR (lexical to BLOCK), if it was specified in "catch"
@@ -84,27 +76,34 @@ DESCRIPTION
         in these cases, "finally" is not called.
 
     return EXPRESSION
-    "return" behaviour is modifiyed, so when you call it inside
-    "try"/"catch", it returns not from "try" block, but from the sub "try"
-    was inside.
+        "return" behaviour is modifiyed, so when you call it inside
+        "try"/"catch", it returns not from "try" block, but from the sub
+        "try" was inside.
 
-    Note: this does not apply to finally block.
+        Note: this does not apply to finally block.
 
-    Note: if both "catch" and "try" uses "return", than value from last
-    "return" is used (but you may ommit "return" in "catch" block, then
-    return value is left unchanged).
+        Note: if both "catch" and "try" uses "return", than value from last
+        "return" is used (but you may ommit "return" in "catch" block, then
+        return value is left unchanged).
 
-    Note: argument for return is executed in the context of sub above "try".
+        Note: argument for return is executed in the context of sub above
+        "try".
 
-    Example:
+        Example:
 
-            sub test{
-                    try{
-                            return map { $_ * 2 } @_;
-                    }
-            }
-            $a = test(1, 2, 3);     #$a = 3
-            @a = test(1, 2, 3);     #@a = (2, 4, 6)
+                sub test{
+                        try{
+                                return map { $_ * 2 } @_;
+                        }
+                }
+                $a = test(1, 2, 3);     #$a = 3
+                @a = test(1, 2, 3);     #@a = (2, 4, 6)
+
+    @_  Inisde "try", you have full read/write access to surronding sub's
+        @_.
+
+        Note: inside "catch"/"finally", you have only read-only access to
+        @_.
 
 CONFIGURATION
     When importing Exception::SEH to your module, you can specify one or
@@ -151,6 +150,10 @@ CAVEATS
     Currently, it's probably unsafe to place "try"/"catch" blocks around
     "use"/"catch". This needs further testing, and may be fixed in future
     releases.
+
+    Currently, due to way caller is detected, if you place try/catch/finally
+    inside "eval" block, "return" wouldn't work as expected. This will be
+    fixed in future releases.
 
 SEE ALSO
     TryCatch

@@ -13,6 +13,8 @@ sub TRY()		{ 0 }
 sub CATCH()		{ 1 }
 sub FINALLY()	{ 2 }
 
+our $VERSION = '0.01002';
+
 sub new{
 	my ($class, $offset) = @_;
 
@@ -184,7 +186,11 @@ sub semicolomn_injector{
 
 1;
 
-=head1
+=head1 NAME
+
+This module parses source for L<Exception::SEH> and is not intended for external use.
+
+=head1 AUTHOR
 
 Copyright (c) 2009 by Sergey Aleynikov.
 This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.

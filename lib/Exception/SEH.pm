@@ -18,7 +18,7 @@ BEGIN{
 	}
 }
 
-our $VERSION = '0.01001';
+our $VERSION = '0.01002';
 $Carp::Internal{'Exception::SEH'}++;
 $Carp::Internal{'Devel::Declare'}++;
 
@@ -287,19 +287,19 @@ sub try($&@) {
 					if ($context){
 						@_result = eval {
 							$@ = $err;
-							$handler->[0]->();
+							$handler->[0]->(@$params);
 						};
 
 					}elsif(defined($context)){
 						$_result[0] = eval {
 							$@ = $err;
-							$handler->[0]->();
+							$handler->[0]->(@$params);
 						};
 
 					}else{
 						eval {
 							$@ = $err;
-							$handler->[0]->();
+							$handler->[0]->(@$params);
 						};
 					}
 
@@ -326,7 +326,7 @@ sub try($&@) {
 	if ($finally){
 		#let it die, if it can
 		$@ = $err;
-		$finally->[0]->();
+		$finally->[0]->(@$params);
 	}
 
 	if ($catch_fail || (!$exception_caught && !$opts->{'-safetry'})){

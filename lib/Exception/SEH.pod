@@ -21,31 +21,31 @@ Exception::SEH - rich try/catch/finally semantics without source filtering
 
 =item *
 
-	Rich catch syntax
+Rich catch syntax
 
 =item *
 
-	No need for trailing ; after try/catch/finally sequence
+No need for trailing ; after try/catch/finally sequence
 
 =item *
 
-	return from try/catch - returns from subroutine, not just try/catch block
+return from try/catch - returns from subroutine, not just try/catch block
 
 =item *
 
-	finally called in all cases (even after return)
+finally called in all cases (even after return)
 
 =item *
 
-	@_ available for try block
+@_ available for try block
 
 =item *
 
-	Nested try/catch
+Nested try/catch
 
 =item *
 
-	Not a source filter (magic for syntax is provided by L<Devel::Declare>)
+Not a source filter (magic for syntax is provided by L<Devel::Declare>)
 
 =back
 
@@ -68,31 +68,31 @@ some conditions. Rules to determine catch handler are following:
 
 =item *
 
-	Search is performed from beginning to end of 'catches' list
+Search is performed from beginning to end of 'catches' list
 
 =item *
 
-	First matched block is executed and the search is stopped
+First matched block is executed and the search is stopped
 
 =item *
 
-	If exception is not an object, then any condition with CLASS definition is skipped
+If exception is not an object, then any condition with CLASS definition is skipped
 
 =item *
 
-	If condition has CLASS, then B<$@->isa(CLASS)> is checked for true value
+If condition has CLASS, then B<$@->isa(CLASS)> is checked for true value
 
 =item *
 
-	If condition has 'where BLOCK' part, then BLOCK is checked for true result, with B<$_> assigned to caught exception
+If condition has 'where BLOCK' part, then BLOCK is checked for true result, with B<$_> assigned to caught exception
 
 =item *
 
-	catch BLOCK, catch () BLOCK, catch ($e) BLOCK are all the same and captures all possible exceptions
+catch BLOCK, catch () BLOCK, catch ($e) BLOCK are all the same and captures all possible exceptions
 
 =item *
 
-	If no condition matches throwed exception, then it's re-thrown (after C<finally> is done)
+If no condition matches throwed exception, then it's re-thrown (after C<finally> is done)
 
 =back
 
@@ -108,8 +108,6 @@ original from a C<try> block.
 
 Note: C<exit> and unhandled signals leads to immidiate program termination (latter even don't allow
 global destruction to happen) - in these cases, C<finally> is B<not> called.
-
-=back
 
 =item return EXPRESSION
 
@@ -132,6 +130,12 @@ Example:
 	}
 	$a = test(1, 2, 3);	#$a = 3
 	@a = test(1, 2, 3);	#@a = (2, 4, 6)
+
+=item @_
+
+Inisde C<try>, you have full read/write access to surronding sub's C<@_>. 
+
+Note: inside C<catch>/C<finally>, you have only read-only access to C<@_>.
 
 =back
 
@@ -158,8 +162,7 @@ for each exception - at first occurence).
 =item -safetry
 
 This options changes behaviour for uncaught exceptions after C<try> block.
-By default, they're re-thrown, but with this option enabled C<try> blocks are always safe
- - just like C<eval>.
+By default, they're re-thrown, but with this option enabled C<try> blocks are always safe - just like C<eval>.
 
 Note: this doesn't refer to exceptions occured in a C<catch> and C<finally> blocks.
 
@@ -185,6 +188,9 @@ results are unpredictable. This may be fixed in future releases.
 
 Currently, it's probably unsafe to place C<try>/C<catch> blocks around C<use>/C<catch>.
 This needs further testing, and may be fixed in future releases.
+
+Currently, due to way caller is detected, if you place try/catch/finally inside C<eval> block,
+C<return> wouldn't work as expected. This will be fixed in future releases.
 
 =head1 SEE ALSO
 
