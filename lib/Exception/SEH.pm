@@ -18,7 +18,7 @@ BEGIN{
 	}
 }
 
-our $VERSION = '0.01002';
+our $VERSION = '0.01003';
 $Carp::Internal{'Exception::SEH'}++;
 $Carp::Internal{'Devel::Declare'}++;
 
@@ -102,7 +102,7 @@ sub parse_try{
 	$parser->inject('(\@_, sub');
 
 	$Exception::SEH::return_hook_id = Exception::SEH::XS::install_return_op_check()
-		if !$OPTS{scalar caller(1)}->{'-noret'} && !$Exception::SEH::return_hook_id;
+		if !$OPTS{Devel::Declare::get_curstash_name}->{'-noret'} && !$Exception::SEH::return_hook_id;
 	$Exception::SEH::Parser::hook_nested_level++;
 
 	$parser->inject_if_block($parser->get_semicolomn_injector(TRY));
@@ -205,7 +205,7 @@ sub parse_catch{
 
 	$parser->skip_spaces();
 	$Exception::SEH::return_hook_id = Exception::SEH::XS::install_return_op_check()
-		if !$OPTS{scalar caller(1)}->{'-noret'} && !$Exception::SEH::return_hook_id;
+		if !$OPTS{Devel::Declare::get_curstash_name}->{'-noret'} && !$Exception::SEH::return_hook_id;
 	$Exception::SEH::Parser::hook_nested_level++;
 
 	$parser->inject_if_block($parser->get_semicolomn_injector(CATCH));

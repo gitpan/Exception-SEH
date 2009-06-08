@@ -188,7 +188,7 @@ sub semicolomn_injector{
 
 =head1 NAME
 
-This module parses source for L<Exception::SEH> and is not intended for external use.
+Exception::SEH::Parser - parses source for L<Exception::SEH> and is not intended for external use.
 
 =head1 AUTHOR
 
