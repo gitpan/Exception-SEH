@@ -18,7 +18,7 @@ BEGIN{
 	}
 }
 
-our $VERSION = '0.01003';
+our $VERSION = '0.01004';
 $Carp::Internal{'Exception::SEH'}++;
 $Carp::Internal{'Devel::Declare'}++;
 
