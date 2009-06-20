@@ -16,3 +16,7 @@ Revision history for Exception::SEH.
 
 0.0104	2009-06-08
 		- forgot to update Changes
+
+0.0105	2009-06-20
+		- fixed compilation issues for threaded perls
+		- added META.yml

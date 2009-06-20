@@ -1,0 +1,30 @@
+---
+abstract: 'rich try/catch/finally semantics without source filtering'
+author:
+  - 'Sergey Aleynikov <sergey.aleynikov@gmail.com>'
+configure_requires:
+  B::Hooks::OP::Check: 0.15
+  B::Hooks::OP::PPAddr: 0.02
+  ExtUtils::Depends: 0
+  ExtUtils::MakeMaker: 6.42
+distribution_type: module
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Exception-SEH
+no_index:
+  directory:
+    - inc
+    - t
+requires:
+  B::Hooks::EndOfScope: 0.08
+  Devel::Declare: 0.005
+  Scope::Upper: 0.07
+  Scalar::Util: 0
+  XSLoader: 0
+  Carp: 0
+  perl: 5.8.1
+resources:
+  license: http://dev.perl.org/licenses/
+version: 0.01005

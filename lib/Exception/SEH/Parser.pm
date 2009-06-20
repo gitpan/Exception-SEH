@@ -21,7 +21,7 @@ sub new{
 	print STDERR "new called at $offset\r\n" if DEBUG;
 	bless {
 		offset	=> $offset,
-	}, shift;
+	}, $class;
 }
 
 #token manip

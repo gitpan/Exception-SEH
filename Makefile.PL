@@ -17,7 +17,7 @@ configure_requires 'B::Hooks::OP::PPAddr' => '0.02';
 configure_requires 'B::Hooks::OP::Check' => '0.15';
 configure_requires 'ExtUtils::Depends';
 
-requires 'Exporter';
+requires 'Carp';
 requires 'XSLoader';
 requires 'Scalar::Util';
 requires 'Scope::Upper' => '0.07';

@@ -1,8 +1,8 @@
+#define PERL_NO_GET_CONTEXT
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
 
-#define NEED_sv_2pv_flags
 #include "ppport.h"
 
 #include "hook_op_check.h"
@@ -18,7 +18,7 @@ unwind_return (pTHX_ OP *op, void *user_data) {
 
   sv_setiv(unwind_flag, 1);
 
-  return CALL_FPTR ((OP *(*)(void))user_data) (aTHX);
+  return CALL_FPTR ((OP *(*)(pTHX))user_data) (aTHX);
 }
 
 /* Hook the OP_RETURN iff we are in the same file as originally compiling. */
@@ -36,7 +36,9 @@ STATIC OP* check_return (pTHX_ OP *op, void *user_data) {
 */
 	
 	if ((int*)op->op_ppaddr != (int*)Perl_pp_return){
-		//printf("already hooked, skip");
+		/*
+			printf("already hooked, skip");
+		*/
 		return op;
 	}
 

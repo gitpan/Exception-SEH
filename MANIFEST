@@ -11,6 +11,7 @@ lib/Exception/SEH.pm
 lib/Exception/SEH.pod
 lib/Exception/SEH/Parser.pm
 Makefile.PL
+META.yml
 MANIFEST
 ppport.h
 README
