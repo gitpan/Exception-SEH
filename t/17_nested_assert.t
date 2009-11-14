@@ -1,4 +1,5 @@
 use strict;
+no warnings;
 use Test::More tests => 3;
 use Test::Exception;
 

@@ -20,3 +20,17 @@ Revision history for Exception::SEH.
 0.0105	2009-06-20
 		- fixed compilation issues for threaded perls
 		- added META.yml
+
+0.0106	2009-08-30
+		- fix possible coredump for 5.8.8 with usemymalloc=no
+		- private release
+
+0.02	2009-11-14
+		- rewritten parser for catch/finally
+		- parser does not call exit() any more
+		- parser error handling differs from 0.01,
+			now all parse errors are printed to STDERR and follows some perl message
+			this also affect string evals - sometime they get only perl message
+			and sometime a correct one
+		- speedup of many-catches code
+		- more effort is taken to catch errors inside 'catch' correctly

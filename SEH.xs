@@ -4,9 +4,7 @@
 #include "XSUB.h"
 
 #include "ppport.h"
-
 #include "hook_op_check.h"
-#include "hook_op_ppaddr.h"
 
 STATIC OP *
 unwind_return (pTHX_ OP *op, void *user_data) {
@@ -25,7 +23,7 @@ unwind_return (pTHX_ OP *op, void *user_data) {
 STATIC OP* check_return (pTHX_ OP *op, void *user_data) {
   const char* file = SvPV_nolen( (SV*)user_data );
   const char* cur_file = CopFILE(&PL_compiling);
-  
+
   if (strcmp(file, cur_file))
     return op;
 
@@ -34,7 +32,7 @@ STATIC OP* check_return (pTHX_ OP *op, void *user_data) {
 	currenlty, we'll segfault inside 'unwind_return'
 	as this check seams to be not working
 */
-	
+
 	if ((int*)op->op_ppaddr != (int*)Perl_pp_return){
 		/*
 			printf("already hooked, skip");

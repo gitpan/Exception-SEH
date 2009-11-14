@@ -39,23 +39,25 @@ throws_ok {eval q/
 	1;
 / or die $@} qr/Code block expected/;
 
-throws_ok {eval q/
-	try{
-	}catch{
+SKIP: {
+	skip('Wild-catch parser errors are gone', 2);
+	throws_ok {eval q/
 		try{
-		};
-		catch;
-	}
+		}catch{
+			try{
+			};
+			catch;
+		}
 
-	1;
-/ or die $@} qr/catch without a try/;
+		1;
+	/ or die $@} qr/catch without a try/;
 
-throws_ok {eval q/
-	try{
-	}catch{
-		catch;
-	}
+	throws_ok {eval q/
+		try{
+			catch;
+		}catch{
+		}
 
-	1;
-/ or die $@} qr/catch without a try/;
-
+		1;
+	/ or die $@} qr/catch without a try/;
+}

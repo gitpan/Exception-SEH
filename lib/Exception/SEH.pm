@@ -1,13 +1,15 @@
 #!/usr/bin/perl
 package Exception::SEH;
 
+use strict;
 use 5.008001;
 
-use strict;
+use Carp ();
 use Devel::Declare ();
+use B::Hooks::EndOfScope;
 use Exception::SEH::Parser;
 use Scalar::Util qw(blessed);
-use Scope::Upper qw/unwind want_at :words/;
+use Scope::Upper qw(unwind want_at reap :words);
 
 use XSLoader;
 
@@ -18,13 +20,12 @@ BEGIN{
 	}
 }
 
-our $VERSION = '0.01005';
+our $VERSION = '0.02';
 $Carp::Internal{'Exception::SEH'}++;
 $Carp::Internal{'Devel::Declare'}++;
 
-our $parser_state = INITIAL;
 our %OPTS = ();
-our $params;
+our $params = [];
 our $need_unwind = 0;
 our $hook_nested_level = 0;
 our $parse_catch_called = 0;
@@ -46,45 +47,25 @@ sub import{
 		if (exists $cur_opts->{$_}){
 			$cur_opts->{$_} = 1;
 		}else{
-			require Carp;
-			Carp::croak "Tryed to set non-existent option: $_";
+			Carp::croak "Tried to set non-existent option: $_";
 		}
 	}
-
-	no strict 'refs';
 
 	#try
 	Devel::Declare->setup_for(
 		$caller,
 		{ try => { const => \&parse_try } }
 	);
+
+	no strict 'refs';
+
+	#this'd be shadowed
 	*{$caller.'::try'} = \&try;
 
-	#catch
-	Devel::Declare->setup_for(
-		$caller,
-		{ catch => { const => \&parse_catch } }
-	);
-	*{$caller.'::catch'} = \&catch;
-
-	#finally
-	Devel::Declare->setup_for(
-		$caller,
-		{ finally => { const => \&parse_finally } }
-	);
-	*{$caller.'::finally'} = \&finally;
+	#these are never directly called
+	*{$caller.'::finally'}	= sub (;&) { Carp::croak 'Found finally without a try{} block' };
+	*{$caller.'::catch'}	= sub (;&) { Carp::croak 'Found catch without a try{} block' };
 }
-
-# result: [code, CATCH | FINALLY, type, check]
-
-sub catch($&&) {
-	return [$_[2], CATCH, $_[0], $_[1]];
-}
-
-sub finally(&) {
-	return [$_[0], FINALLY]
-}
-
 
 sub parse_try{
 	my $parser = Exception::SEH::Parser->new($_[1]);
@@ -101,64 +82,67 @@ sub parse_try{
 
 	$parser->inject('(\@_, sub');
 
-	$Exception::SEH::return_hook_id = Exception::SEH::XS::install_return_op_check()
-		if !$OPTS{Devel::Declare::get_curstash_name}->{'-noret'} && !$Exception::SEH::return_hook_id;
-	$Exception::SEH::Parser::hook_nested_level++;
+	$return_hook_id = Exception::SEH::XS::install_return_op_check()
+		if !$OPTS{Devel::Declare::get_curstash_name}->{'-noret'} && !$return_hook_id;
+	$hook_nested_level++;
 
-	$parser->inject_if_block($parser->get_semicolomn_injector(TRY));
+	$parser->inject_if_block($parser->get_injector('Exception::SEH::aftercheck', TRY));
 	$parser->inject('*_ = $Exception::SEH::params;');
-	$Exception::SEH::parser_state = INITIAL;
 }
 
+sub aftercheck{
+	my $prev_item_type = shift;
+
+	on_scope_end {
+		if (
+			$return_hook_id
+				&&
+			--$hook_nested_level <= 0
+		){
+			Exception::SEH::XS::uninstall_return_op_check($return_hook_id);
+			$return_hook_id = undef;
+		}
+
+		my $parser = Exception::SEH::Parser->new(Devel::Declare::get_linestr_offset);
+
+		$parser->skip_spaces();
+		my $token = $parser->get_word();
+
+		if ($token eq 'catch'){
+			parse_catch($parser, $prev_item_type);
+		}elsif ($token eq 'finally'){
+			parse_finally($parser, $prev_item_type);
+		}else{
+			$parser->inject(');');
+		}
+	}
+}
 
 sub parse_finally{
-	my $parser = Exception::SEH::Parser->new($_[1]);
+	my ($parser, $prev_item_type) = @_;
 
-	if ((my $token = $parser->get_word()) ne 'finally'){
-		return;
+	if ($prev_item_type == FINALLY){
+		$parser->panic('Found finally block more than once after single try{}');
 	}
 
-	$parser->skip_word();
+	$parser->cutoff(length('finally'));
+	$parser->inject(', sub ');
 	$parser->skip_spaces();
-	if ($parser->get_symbols(2) eq '=>'){
-		return;
-	}
-
-	if ($Exception::SEH::parser_state == INITIAL){
-		require Carp;
-		Carp::croak 'Found finally without a try{} block';
-	}
-
-	if ($Exception::SEH::parser_state == FINALLY){
-		require Carp;
-		Carp::croak 'Found finally block more than once after single try{}';
-	}
-
-	$parser->inject('(sub');
-	$parser->inject_if_block($parser->get_semicolomn_injector(FINALLY));
-	$Exception::SEH::parser_state = INITIAL;
+	$parser->inject_if_block($parser->get_injector('Exception::SEH::aftercheck', FINALLY));
 }
 
 sub parse_catch{
-	my $parser = Exception::SEH::Parser->new($_[1]);
+	my ($parser, $prev_item_type) = @_;
 
-	if ((my $token = $parser->get_word()) ne 'catch'){
-		return;
+	if ($prev_item_type == FINALLY){
+		$parser->panic('Found catch block again after finally');
 	}
 
-	$parser->skip_word();
+	$parser->cutoff(length('catch'));
+	$parser->inject(', ');
 	$parser->skip_spaces();
-	if ($parser->get_symbols(2) eq '=>'){
-		return;
-	}
-
-	if ($Exception::SEH::parser_state == INITIAL){
-		require Carp;
-		Carp::croak 'Found catch without a try{} block';
-	}
 
 	my $err_var = undef;
-	$parser->inject('(');
 
 	if ($parser->get_symbols(1) eq '('){
 		my $args = $parser->extract_args();
@@ -168,55 +152,52 @@ sub parse_catch{
 			($err_var) = $args =~ /\G\s*\$(\w+)\s*/gcs;
 
 			if ($type && !$err_var){
-				require Carp;
-				Carp::croak "Found exception class definition, but no context var while parsing catch definition";
+				$parser->panic("Found exception class definition, but no context var while parsing catch definition");
 			}
 
 			if ($type){
-				$parser->inject(" '$type',");
+				$parser->inject(" '$type', ");
 			}else{
-				$parser->inject(" undef,");
+				$parser->inject(" undef, ");
 			}
 
 			my ($where_present, $where) = $args =~ /\G\s*(where)\s*(.*?)\s*$/gcs;
 			if ($where_present && $where !~ /^{.*}$/){
-				require Carp;
-				Carp::croak '"Where" must be followed by a block inside catch definition';
+				$parser->panic('"Where" must be followed by a block inside catch definition');
 			}
 
 			if ($where){
-				$parser->inject(" sub $where, sub");
+				$parser->inject(" sub $where");
 			}else{
-				$parser->inject(" undef, sub");
+				$parser->inject(" undef");
 			}
 
 			if (pos($args) != length($args)){
-				require Carp;
-				Carp::croak 'Found junk inside catch definition';
+				$parser->panic('Found junk inside catch definition');
 			}
 
 		}else{
-			$parser->inject(' undef, undef, sub');
+			$parser->inject(' undef, undef');
 		}
 
 	}else{
-		$parser->inject(' undef, undef, sub');
+		$parser->inject(' undef, undef');
 	}
 
-	$parser->skip_spaces();
-	$Exception::SEH::return_hook_id = Exception::SEH::XS::install_return_op_check()
-		if !$OPTS{Devel::Declare::get_curstash_name}->{'-noret'} && !$Exception::SEH::return_hook_id;
-	$Exception::SEH::Parser::hook_nested_level++;
+	$parser->inject(', sub ');
+	$return_hook_id = Exception::SEH::XS::install_return_op_check()
+		if !$OPTS{Devel::Declare::get_curstash_name}->{'-noret'} && !$return_hook_id;
+	$hook_nested_level++;
 
-	$parser->inject_if_block($parser->get_semicolomn_injector(CATCH));
+	$parser->skip_spaces();
+	$parser->inject_if_block($parser->get_injector('Exception::SEH::aftercheck', CATCH));
 	$parser->inject('my $'.$err_var.' = $@;') if $err_var;
-	$Exception::SEH::parser_state = INITIAL;
 }
 
 #==========##==========##==========#
 
 sub try($&@) {
-	my $opts = $OPTS{scalar caller()};
+	my $opts = $OPTS{scalar caller};
 	local $SIG{__DIE__} = 'DEFAULT' if $opts->{'-nosig'};
 
 	#for unwind
@@ -227,10 +208,8 @@ sub try($&@) {
 	}
 	local $params = shift;
 	my $code = shift;
-	my $finally = undef;
-	if (scalar @_ && $_[$#_]->[1] == FINALLY){
-		$finally = pop @_;
-	}
+
+	my $finally = (scalar @_ % 3 == 0 ? undef : pop @_);
 	my $catch_fail = 0;
 	my $exception_caught = 1;
 
@@ -240,19 +219,11 @@ sub try($&@) {
 	$@ = undef;
 	my @result;
 	if ($context){
-		@result = eval {
-			$code->();
-		};
-
+		@result = eval { $code->() }
 	}elsif(defined($context)){
-		$result[0] = eval {
-			$code->();
-		};
-
+		$result[0] = eval { $code->() }
 	}else{
-		eval {
-			$code->();
-		};
+		eval { $code->() }
 	}
 
 	my $err = $@;
@@ -264,19 +235,21 @@ sub try($&@) {
 		eval{
 			my $err_blessed = blessed($err);
 
-			foreach my $handler (@_) {
-				next if $handler->[1] != CATCH;
+			my $pos = -3;
+			while ($pos + 3 < scalar @_) {
+				$pos += 3;
+				my ($type, $where, $handler) = @_[$pos..$pos+2];
 
 				if (
-					!$handler->[2]
+					!$type
 						||
 					 $err_blessed
 						&&
-					$err->isa($handler->[2])
+					$err->isa($type)
 				){
-					if ($handler->[3]){
+					if (defined $where){
 						local $_ = $err;
-						next if !$handler->[3]->();
+						next if !$where->();
 					}
 
 					$exception_caught = 1;
@@ -284,29 +257,20 @@ sub try($&@) {
 					$need_unwind = 0;
 					my @_result;
 
-					if ($context){
-						@_result = eval {
-							$@ = $err;
-							$handler->[0]->(@$params);
+					eval {
+						$@ = $err;
+						if ($context){
+							@_result = $handler->(@$params);
+						} elsif (defined($context)) {
+							$_result[0] = $handler->(@$params);
+						} else {
+							$handler->(@$params);
 						};
-
-					}elsif(defined($context)){
-						$_result[0] = eval {
-							$@ = $err;
-							$handler->[0]->(@$params);
-						};
-
-					}else{
-						eval {
-							$@ = $err;
-							$handler->[0]->(@$params);
-						};
-					}
-
-					if ($@){
+						1;
+					} or do {
 						$err = $@;
 						$catch_fail = 1;
-					}
+					};
 
 					if ($need_unwind){
 						@result = @_result;
@@ -323,10 +287,9 @@ sub try($&@) {
 		}
 	}
 
-	if ($finally){
-		#let it die, if it can
+	if (defined $finally){
 		$@ = $err;
-		$finally->[0]->(@$params);
+		$finally->(@$params);
 	}
 
 	if ($catch_fail || (!$exception_caught && !$opts->{'-safetry'})){
@@ -335,7 +298,7 @@ sub try($&@) {
 	}
 
 	if($opts->{'-noret'} || !$need_unwind){
-#		print STDERR "normal return\n";
+		#print STDERR "normal return\n";
 		$need_unwind = 0;
 		return wantarray ? @result : $result[0];
 
@@ -344,7 +307,6 @@ sub try($&@) {
 		unwind +($context ? @result : $result[0]) => $cx;
 
 	}else{
-		require Carp;
 		Carp::croak 'Cannot determine return point';
 	}
 }

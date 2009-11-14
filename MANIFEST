@@ -39,3 +39,4 @@ t/41_options_packages.t
 t/42_options_nosig.t
 t/43_options_nonexistent.t
 t/44_options_noret.t
+t/50_rt_49029.t

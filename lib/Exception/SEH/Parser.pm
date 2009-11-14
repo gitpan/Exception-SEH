@@ -2,9 +2,11 @@
 package Exception::SEH::Parser;
 
 use strict;
+
+use Carp ();
 use Devel::Declare ();
-use B::Hooks::EndOfScope;
 use B::Hooks::OP::PPAddr;
+use Scope::Upper qw(EVAL);
 
 sub DEBUG() { 0 }
 
@@ -13,7 +15,7 @@ sub TRY()		{ 0 }
 sub CATCH()		{ 1 }
 sub FINALLY()	{ 2 }
 
-our $VERSION = '0.01002';
+our $VERSION = '0.01003';
 
 sub new{
 	my ($class, $offset) = @_;
@@ -22,6 +24,19 @@ sub new{
 	bless {
 		offset	=> $offset,
 	}, $class;
+}
+
+#err handler
+
+sub panic{
+	my ($self, $err) = @_;
+
+	if (EVAL > 0){
+		Carp::croak $err;
+	}else{
+		print STDERR 'Exception::SEH - ', $err, "\n\n";
+		die;
+	}
 }
 
 #token manip
@@ -80,9 +95,10 @@ sub extract_args{
 			$length < 0
 				||
 			$self->{'offset'} + $length > length($linestr)
+				||
+			$self->{'offset'} < 0
 		){
-			require Carp;
-			Carp::croak "Unbalanced text supplied as catch argument";
+			$self->panic("Unbalanced text supplied as catch argument");
 		}
 		substr($linestr, $self->{'offset'}, $length) = '';
 		Devel::Declare::set_linestr($linestr);
@@ -95,19 +111,34 @@ sub extract_args{
 #injectors
 
 sub inject{
-	my ($self, $inject) = @_;
+	my ($self, $string) = @_;
 
-	print STDERR "inject called at $self->{offset} for '$inject'\r\n" if DEBUG;
+	$self->substitute($string, 0);
+}
+
+sub cutoff{
+	my ($self, $len) = @_;
+
+	$self->substitute('', $len);
+}
+
+sub substitute{
+	my ($self, $string, $replace_len) = @_;
+
+	print STDERR "inject called at $self->{offset} for '$string'\r\n" if DEBUG;
 
 	my $linestr = Devel::Declare::get_linestr;
-	if ($self->{'offset'} > length($linestr)){
-		require Carp;
-		Carp::croak "Parser tried to inject data outside program source, stopping";
+	if (
+		$self->{'offset'} > length($linestr)
+				||
+		$self->{'offset'} < 0
+	){
+		$self->panic("Parser tried to inject data outside program source, stopping");
 	}
-	substr($linestr, $self->{'offset'}, 0) = $inject;
+	substr($linestr, $self->{'offset'}, $replace_len) = $string;
 	Devel::Declare::set_linestr($linestr);
 
-	$self->{'offset'} += length($inject);
+	$self->{'offset'} += length($string);
 }
 
 sub inject_if_block{
@@ -119,69 +150,14 @@ sub inject_if_block{
 		$self->{'offset'} += 1;
 		$self->inject($inject);
 	}else{
-		require Carp;
-		Carp::croak 'Code block expected';
+		$self->panic('Code block expected');
 	}
 }
 
-sub get_semicolomn_injector{
-	#my ($self, $call_type) = @_;
-	return " BEGIN { Exception::SEH::Parser::semicolomn_injector($_[1]) }; ";
-}
+sub get_injector{
+	my ($self, $func, @args) = @_;
 
-sub semicolomn_injector{
-	my $call_type = shift;
-
-	#checks syntax, and, if there's no more catch/finally
-	#	put semicolon
-	on_scope_end {
-		if (
-			$Exception::SEH::return_hook_id
-				&&
-			--$Exception::SEH::Parser::hook_nested_level <= 0
-		){
-			Exception::SEH::XS::uninstall_return_op_check($Exception::SEH::return_hook_id);
-			$Exception::SEH::return_hook_id = undef;
-		}
-
-		my $parser = Exception::SEH::Parser->new(Devel::Declare::get_linestr_offset);
-
-		print STDERR "on_scope_end for $call_type, current state $Exception::SEH::parser_state\r\n" if DEBUG;
-
-		if ($call_type > 0){
-			$parser->inject(')');
-			$Exception::SEH::parse_catch_called = 1;
-		}
-
-		my $before = Devel::Declare::get_linestr();
-		$parser->skip_spaces;
-		my $after = Devel::Declare::get_linestr();
-		if ($parser->get_symbols(5) ne 'catch' && $parser->get_symbols(7) ne 'finally'){
-			if ($Exception::SEH::parser_state != INITIAL){
-				print STDERR "End-of-try called in inapropriate parser state.\r\n Here we can't die normally - you won't get normal parse error.\r\n";
-				exit -1;
-			}
-
-			#end-of-block
-			if (
-				($before ne $after)
-					&&
-				$Exception::SEH::parse_catch_called
-			){
-				print STDERR "match\n" if DEBUG;
-				$parser->inject('));');
-			}else{
-				$parser->inject(');');
-			}
-
-			$Exception::SEH::parse_catch_called = 0;
-			$Exception::SEH::parser_state = INITIAL;
-		}else{
-			$parser->inject(',');
-			$Exception::SEH::parser_state = $call_type;
-		}
-		print STDERR "line after on_scope_end =", Devel::Declare::get_linestr(), "=\r\n" if DEBUG;
-	}
+	return " BEGIN { $func(".join(',', map { "'$_'" } @args).") } ";
 }
 
 1;

@@ -1,6 +1,7 @@
 use strict;
 use Test::More tests => 13;
 use Test::Exception;
+no warnings;
 
 package Z;
 	sub try{
