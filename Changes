@@ -34,3 +34,7 @@ Revision history for Exception::SEH.
 			and sometime a correct one
 		- speedup of many-catches code
 		- more effort is taken to catch errors inside 'catch' correctly
+
+0.0201	2009-11-21
+		- explicitly forbid compilation under Win32,
+			as 'return' hooking fails there

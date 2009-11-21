@@ -1,6 +1,8 @@
 use strict;
 use inc::Module::Install;
 
+die "OS unsupported\n" if $^O =~ /MSWin/;
+
 perl_version '5.008001';
 name 'Exception-SEH';
 
