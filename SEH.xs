@@ -27,25 +27,11 @@ STATIC OP* check_return (pTHX_ OP *op, void *user_data) {
   if (strcmp(file, cur_file))
     return op;
 
-/*
-	better check here for already hooked opcode
-	currenlty, we'll segfault inside 'unwind_return'
-	as this check seams to be not working
-*/
-
-	if ((int*)op->op_ppaddr != (int*)Perl_pp_return){
-		/*
-			printf("already hooked, skip");
-		*/
-		return op;
-	}
-
   hook_op_ppaddr(op, unwind_return, op->op_ppaddr);
   return op;
 }
 
 MODULE = Exception::SEH PACKAGE = Exception::SEH::XS
-
 PROTOTYPES: DISABLE
 
 void
@@ -61,7 +47,7 @@ install_return_op_check()
     (void)SvUPGRADE(ST(0),SVt_PVNV);
     sv_setpvn(ST(0),file,len);
 
-    id = hook_op_check( OP_RETURN, check_return, ST(0) );
+    id = hook_op_check(OP_RETURN, check_return, ST(0));
 #ifdef SVf_IVisUV
     SvUV_set(ST(0), id);
     SvIOK_on(ST(0));

@@ -1,194 +1,315 @@
-NAME
-    Exception::SEH - rich try/catch/finally semantics without source
-    filtering
-
-SYNOPSIS
-            use Exception::SEH;
-            try {
-                    <...> or die YourException;
-            } catch (SomeException $e) {
-                    <catch code>
-            } catch (YourException $e where { $_->param > 10 }) {
-                    log($e->message);
-            } finally {
-                    <cleanup code>
-            }
-
-FEATURES
-    * Rich catch syntax
-
-    * No need for trailing ; after try/catch/finally sequence
-
-    * return from try/catch - returns from subroutine, not just try/catch
-      block
-
-    * finally called in all cases (even after return)
-
-    * @_ available for try block
-
-    * Nested try/catch
-
-    * Not a source filter (magic for syntax is provided by Devel::Declare)
-
-DESCRIPTION
-    try BLOCK
-        Evaluates BLOCK, allowing any exceptions inside it to be caught and
-        processed.
-
-    catch BLOCK
-    catch ([[CLASS] $VAR] [where BLOCK]) BLOCK
-        Catches and processes (using given BLOCK) exception that
-        (optionally) matches some conditions. Rules to determine catch
-        handler are following:
-
-        * Search is performed from beginning to end of 'catches' list
-
-        * First matched block is executed and the search is stopped
-
-        * If exception is not an object, then any condition with CLASS
-          definition is skipped
-
-        * If condition has CLASS, then $@-isa(CLASS)> is checked for true
-          value
-
-        * If condition has 'where BLOCK' part, then BLOCK is checked for
-          true result, with $_ assigned to caught exception
-
-        * catch BLOCK, catch () BLOCK, catch ($e) BLOCK are all the same and
-          captures all possible exceptions
-
-        * If no condition matches throwed exception, then it's re-thrown
-          (after "finally" is done)
-
-        Inside BLOCK after "catch" exception is available as $@ (always) and
-        also as $VAR (lexical to BLOCK), if it was specified in "catch"
-        signature.
-
-    finally BLOCK
-        Finally block is always executed after either "try" or "catch".
-        Exception in it is available as $@.
-
-        Note: if exception was generated inside a "catch" handler, than in
-        $@ would be new one, not original from a "try" block.
-
-        Note: "exit" and unhandled signals leads to immidiate program
-        termination (latter even don't allow global destruction to happen) -
-        in these cases, "finally" is not called.
-
-    return EXPRESSION
-        "return" behaviour is modifiyed, so when you call it inside
-        "try"/"catch", it returns not from "try" block, but from the sub
-        "try" was inside.
-
-        Note: this does not apply to finally block.
-
-        Note: if both "catch" and "try" uses "return", than value from last
-        "return" is used (but you may ommit "return" in "catch" block, then
-        return value is left unchanged).
-
-        Note: argument for return is executed in the context of sub above
-        "try".
-
-        Example:
-
-                sub test{
-                        try{
-                                return map { $_ * 2 } @_;
-                        }
-                }
-                $a = test(1, 2, 3);     #$a = 3
-                @a = test(1, 2, 3);     #@a = (2, 4, 6)
-
-    @_  Inisde "try", you have full read/write access to surronding sub's
-        @_.
-
-        Note: inside "catch"/"finally", you have only read-only access to
-        @_.
-
-CONFIGURATION
-    When importing Exception::SEH to your module, you can specify one or
-    more of the following keywords: -nosig -noret -safetry, which change
-    default behaviour in some way. These options are tracked on per-package
-    basis.
-
-            use Exception::SEH -nosig, -safetry;
-
-    -nosig
-        By default, Exception::SEH doesn't play with $SIG{__DIE__}, so your
-        handler is normally called. But if you need to suppress it inside
-        try/catch/finally blocks, you can import "-nosig".
-
-        Note: if exception is re-thrown after "finally" block, __DIE__
-        handler is always suppressed for that moment (so it is called only
-        once for each exception - at first occurence).
-
-    -safetry
-        This options changes behaviour for uncaught exceptions after "try"
-        block. By default, they're re-thrown, but with this option enabled
-        "try" blocks are always safe - just like "eval".
-
-        Note: this doesn't refer to exceptions occured in a "catch" and
-        "finally" blocks.
-
-    -noret
-        Tells Exception::SEH not to install "return" hook. This makes "try"
-        blocks behave like evals, and context for "return" is determined by
-        context of "try", not by context of sub, containing "try".
-
-DIAGNOSTICS
-    All compile-time discovered errors are raised through "Carp::croak" with
-    (hopefully) meaningful description.
-
-CAVEATS
-    Currently, three subroutines - try, catch, finally - are injected into
-    caller's namespace.
-
-    Currently, it's impossible to use any other module that hooks OP_RETURN
-    OP on XS level - results are unpredictable. This may be fixed in future
-    releases.
-
-    Currently, it's probably unsafe to place "try"/"catch" blocks around
-    "use"/"catch". This needs further testing, and may be fixed in future
-    releases.
-
-    Currently, due to way caller is detected, if you place try/catch/finally
-    inside "eval" block, "return" wouldn't work as expected. This will be
-    fixed in future releases.
-
-SEE ALSO
-    TryCatch
-
-    Similar semantics, but it takes the whole Moose with itself - often too
-    much weight. Currently lacks finally block and @_ access inside try{}.
-    But still, decent choice.
-
-    Exception::Class::TryCatch
-
-    Ugly syntax. Only Exception::Class-derived exceptions.
-
-    Exception::Class::TCF
-
-    Better syntax. Lacks exception lexical in try block, returns from try{}
-    block. Still only Exception::Class-derived exceptions.
-
-    Error::TryCatch
-
-    Source filter. No finally{} call after return() from try.
-
-    Error
-
-    "Error's syntactic sugar tends to break." (c)
-
-AUTHOR
-    Sergey Aleynikov <sergey.aleynikov@gmail.com>
-
-LICENSE
-    Copyright (c) 2009 by Sergey Aleynikov. This program is free software;
-    you can redistribute it and/or modify it under the same terms as Perl
-    itself.
-
-    Some part for parser are taken from Devel::Declare::Context::Simple, (c)
-    Rhesa Rozendaal (?).
-
-    Idea how to set up return hook - TryCatch, (c) Ash Berlin.
-
+.\" Automatically generated by Pod::Man v1.37, Pod::Parser v1.32
+.\"
+.\" Standard preamble:
+.\" ========================================================================
+.de Sh \" Subsection heading
+.br
+.if t .Sp
+.ne 5
+.PP
+\fB\\$1\fR
+.PP
+..
+.de Sp \" Vertical space (when we can't use .PP)
+.if t .sp .5v
+.if n .sp
+..
+.de Vb \" Begin verbatim text
+.ft CW
+.nf
+.ne \\$1
+..
+.de Ve \" End verbatim text
+.ft R
+.fi
+..
+.\" Set up some character translations and predefined strings.  \*(-- will
+.\" give an unbreakable dash, \*(PI will give pi, \*(L" will give a left
+.\" double quote, and \*(R" will give a right double quote.  | will give a
+.\" real vertical bar.  \*(C+ will give a nicer C++.  Capital omega is used to
+.\" do unbreakable dashes and therefore won't be available.  \*(C` and \*(C'
+.\" expand to `' in nroff, nothing in troff, for use with C<>.
+.tr \(*W-|\(bv\*(Tr
+.ds C+ C\v'-.1v'\h'-1p'\s-2+\h'-1p'+\s0\v'.1v'\h'-1p'
+.ie n \{\
+.    ds -- \(*W-
+.    ds PI pi
+.    if (\n(.H=4u)&(1m=24u) .ds -- \(*W\h'-12u'\(*W\h'-12u'-\" diablo 10 pitch
+.    if (\n(.H=4u)&(1m=20u) .ds -- \(*W\h'-12u'\(*W\h'-8u'-\"  diablo 12 pitch
+.    ds L" ""
+.    ds R" ""
+.    ds C` ""
+.    ds C' ""
+'br\}
+.el\{\
+.    ds -- \|\(em\|
+.    ds PI \(*p
+.    ds L" ``
+.    ds R" ''
+'br\}
+.\"
+.\" If the F register is turned on, we'll generate index entries on stderr for
+.\" titles (.TH), headers (.SH), subsections (.Sh), items (.Ip), and index
+.\" entries marked with X<> in POD.  Of course, you'll have to process the
+.\" output yourself in some meaningful fashion.
+.if \nF \{\
+.    de IX
+.    tm Index:\\$1\t\\n%\t"\\$2"
+..
+.    nr % 0
+.    rr F
+.\}
+.\"
+.\" For nroff, turn off justification.  Always turn off hyphenation; it makes
+.\" way too many mistakes in technical documents.
+.hy 0
+.if n .na
+.\"
+.\" Accent mark definitions (@(#)ms.acc 1.5 88/02/08 SMI; from UCB 4.2).
+.\" Fear.  Run.  Save yourself.  No user-serviceable parts.
+.    \" fudge factors for nroff and troff
+.if n \{\
+.    ds #H 0
+.    ds #V .8m
+.    ds #F .3m
+.    ds #[ \f1
+.    ds #] \fP
+.\}
+.if t \{\
+.    ds #H ((1u-(\\\\n(.fu%2u))*.13m)
+.    ds #V .6m
+.    ds #F 0
+.    ds #[ \&
+.    ds #] \&
+.\}
+.    \" simple accents for nroff and troff
+.if n \{\
+.    ds ' \&
+.    ds ` \&
+.    ds ^ \&
+.    ds , \&
+.    ds ~ ~
+.    ds /
+.\}
+.if t \{\
+.    ds ' \\k:\h'-(\\n(.wu*8/10-\*(#H)'\'\h"|\\n:u"
+.    ds ` \\k:\h'-(\\n(.wu*8/10-\*(#H)'\`\h'|\\n:u'
+.    ds ^ \\k:\h'-(\\n(.wu*10/11-\*(#H)'^\h'|\\n:u'
+.    ds , \\k:\h'-(\\n(.wu*8/10)',\h'|\\n:u'
+.    ds ~ \\k:\h'-(\\n(.wu-\*(#H-.1m)'~\h'|\\n:u'
+.    ds / \\k:\h'-(\\n(.wu*8/10-\*(#H)'\z\(sl\h'|\\n:u'
+.\}
+.    \" troff and (daisy-wheel) nroff accents
+.ds : \\k:\h'-(\\n(.wu*8/10-\*(#H+.1m+\*(#F)'\v'-\*(#V'\z.\h'.2m+\*(#F'.\h'|\\n:u'\v'\*(#V'
+.ds 8 \h'\*(#H'\(*b\h'-\*(#H'
+.ds o \\k:\h'-(\\n(.wu+\w'\(de'u-\*(#H)/2u'\v'-.3n'\*(#[\z\(de\v'.3n'\h'|\\n:u'\*(#]
+.ds d- \h'\*(#H'\(pd\h'-\w'~'u'\v'-.25m'\f2\(hy\fP\v'.25m'\h'-\*(#H'
+.ds D- D\\k:\h'-\w'D'u'\v'-.11m'\z\(hy\v'.11m'\h'|\\n:u'
+.ds th \*(#[\v'.3m'\s+1I\s-1\v'-.3m'\h'-(\w'I'u*2/3)'\s-1o\s+1\*(#]
+.ds Th \*(#[\s+2I\s-2\h'-\w'I'u*3/5'\v'-.3m'o\v'.3m'\*(#]
+.ds ae a\h'-(\w'a'u*4/10)'e
+.ds Ae A\h'-(\w'A'u*4/10)'E
+.    \" corrections for vroff
+.if v .ds ~ \\k:\h'-(\\n(.wu*9/10-\*(#H)'\s-2\u~\d\s+2\h'|\\n:u'
+.if v .ds ^ \\k:\h'-(\\n(.wu*10/11-\*(#H)'\v'-.4m'^\v'.4m'\h'|\\n:u'
+.    \" for low resolution devices (crt and lpr)
+.if \n(.H>23 .if \n(.V>19 \
+\{\
+.    ds : e
+.    ds 8 ss
+.    ds o a
+.    ds d- d\h'-1'\(ga
+.    ds D- D\h'-1'\(hy
+.    ds th \o'bp'
+.    ds Th \o'LP'
+.    ds ae ae
+.    ds Ae AE
+.\}
+.rm #[ #] #H #V #F C
+.\" ========================================================================
+.\"
+.IX Title "SEH 1"
+.TH SEH 1 "2009-05-31" "perl v5.8.8" "User Contributed Perl Documentation"
+.SH "NAME"
+Exception::SEH \- rich try/catch/finally semantics without source filtering
+.SH "SYNOPSIS"
+.IX Header "SYNOPSIS"
+.Vb 10
+\&        use Exception::SEH;
+\&        try {
+\&                <...> or die YourException;
+\&        } catch (SomeException $e) {
+\&                <catch code>
+\&        } catch (YourException $e where { $_->param > 10 }) {
+\&                log($e->message);
+\&        } finally {
+\&                <cleanup code>
+\&        }
+.Ve
+.SH "FEATURES"
+.IX Header "FEATURES"
+.IP "\(bu" 2
+Rich catch syntax
+.IP "\(bu" 2
+No need for trailing ; after try/catch/finally sequence
+.IP "\(bu" 2
+return from try/catch \- returns from subroutine, not just try/catch block
+.IP "\(bu" 2
+finally called in all cases (even after return)
+.IP "\(bu" 2
+@_ available for try block
+.IP "\(bu" 2
+Nested try/catch
+.IP "\(bu" 2
+Not a source filter (magic for syntax is provided by Devel::Declare)
+.SH "DESCRIPTION"
+.IX Header "DESCRIPTION"
+.IP "try \s-1BLOCK\s0" 4
+.IX Item "try BLOCK"
+Evaluates \s-1BLOCK\s0, allowing any exceptions inside it to be caught and processed.
+.IP "catch \s-1BLOCK\s0" 4
+.IX Item "catch BLOCK"
+.PD 0
+.ie n .IP "catch ([[\s-1CLASS\s0] $VAR] [where \s-1BLOCK\s0]) \s-1BLOCK\s0" 4
+.el .IP "catch ([[\s-1CLASS\s0] \f(CW$VAR\fR] [where \s-1BLOCK\s0]) \s-1BLOCK\s0" 4
+.IX Item "catch ([[CLASS] $VAR] [where BLOCK]) BLOCK"
+.PD
+Catches and processes (using given \s-1BLOCK\s0) exception that (optionally) matches
+some conditions. Rules to determine catch handler are following:
+.RS 4
+.IP "*" 2
+Search is performed from beginning to end of 'catches' list
+.IP "*" 2
+First matched block is executed and the search is stopped
+.IP "*" 2
+If exception is not an object, then any condition with \s-1CLASS\s0 definition is skipped
+.IP "*" 2
+If condition has \s-1CLASS\s0, then \fB$@\-\fRisa(\s-1CLASS\s0)> is checked for true value
+.IP "*" 2
+If condition has 'where \s-1BLOCK\s0' part, then \s-1BLOCK\s0 is checked for true result, with \fB$_\fR assigned to caught exception
+.IP "*" 2
+catch \s-1BLOCK\s0, catch () \s-1BLOCK\s0, catch ($e) \s-1BLOCK\s0 are all the same and captures all possible exceptions
+.IP "*" 2
+If no condition matches throwed exception, then it's re-thrown (after \f(CW\*(C`finally\*(C'\fR is done)
+.RE
+.RS 4
+.Sp
+Inside \s-1BLOCK\s0 after \f(CW\*(C`catch\*(C'\fR exception is available as \fB$@\fR (always) and also as \f(CW$VAR\fR (lexical to \s-1BLOCK\s0),
+if it was specified in \f(CW\*(C`catch\*(C'\fR signature.
+.RE
+.IP "finally \s-1BLOCK\s0" 4
+.IX Item "finally BLOCK"
+Finally block is always executed after either \f(CW\*(C`try\*(C'\fR or \f(CW\*(C`catch\*(C'\fR. Exception in it is available as \fB$@\fR.
+.Sp
+Note: if exception was generated inside a \f(CW\*(C`catch\*(C'\fR handler, than in \fB$@\fR would be new one, not
+original from a \f(CW\*(C`try\*(C'\fR block.
+.Sp
+Note: \f(CW\*(C`exit\*(C'\fR and unhandled signals leads to immidiate program termination (latter even don't allow
+global destruction to happen) \- in these cases, \f(CW\*(C`finally\*(C'\fR is \fBnot\fR called.
+.IP "return \s-1EXPRESSION\s0" 4
+.IX Item "return EXPRESSION"
+\&\f(CW\*(C`return\*(C'\fR behaviour is modifiyed, so when you call it inside \f(CW\*(C`try\*(C'\fR/\f(CW\*(C`catch\*(C'\fR, it returns not from 
+\&\f(CW\*(C`try\*(C'\fR block, but from the sub \f(CW\*(C`try\*(C'\fR was inside.
+.Sp
+Note: this does not apply to finally block.
+.Sp
+Note: if both \f(CW\*(C`catch\*(C'\fR and \f(CW\*(C`try\*(C'\fR uses \f(CW\*(C`return\*(C'\fR, than value from last \f(CW\*(C`return\*(C'\fR is used (but you
+may ommit \f(CW\*(C`return\*(C'\fR in \f(CW\*(C`catch\*(C'\fR block, then return value is left unchanged).
+.Sp
+Note: argument for return is executed in the context of sub above \f(CW\*(C`try\*(C'\fR.
+.Sp
+Example:
+.Sp
+.Vb 7
+\&        sub test{
+\&                try{
+\&                        return map { $_ * 2 } @_;
+\&                }
+\&        }
+\&        $a = test(1, 2, 3);     #$a = 3
+\&        @a = test(1, 2, 3);     #@a = (2, 4, 6)
+.Ve
+.IP "@_" 4
+.IX Item "@_"
+Inisde \f(CW\*(C`try\*(C'\fR, you have full read/write access to surronding sub's \f(CW@_\fR. 
+.Sp
+Note: inside \f(CW\*(C`catch\*(C'\fR/\f(CW\*(C`finally\*(C'\fR, you have only read-only access to \f(CW@_\fR.
+.SH "CONFIGURATION"
+.IX Header "CONFIGURATION"
+When importing Exception::SEH to your module, you can specify
+one or more of the following keywords: \fB\-nosig\fR \fB\-noret\fR \fB\-safetry\fR, which change default
+behaviour in some way. These options are tracked on per-package basis.
+.PP
+.Vb 1
+\&        use Exception::SEH -nosig, -safetry;
+.Ve
+.IP "\-nosig" 4
+.IX Item "-nosig"
+By default, Exception::SEH doesn't play with \f(CW$SIG\fR{_\|_DIE_\|_}, so your handler
+is normally called. But if you need to suppress it inside try/catch/finally blocks,
+you can import \f(CW\*(C`\-nosig\*(C'\fR.
+.Sp
+Note: if exception is re-thrown after \f(CW\*(C`finally\*(C'\fR block, _\|_DIE_\|_ handler is
+always suppressed for that moment (so it is called only once
+for each exception \- at first occurence).
+.IP "\-safetry" 4
+.IX Item "-safetry"
+This options changes behaviour for uncaught exceptions after \f(CW\*(C`try\*(C'\fR block.
+By default, they're re\-thrown, but with this option enabled \f(CW\*(C`try\*(C'\fR blocks are always safe \- just like \f(CW\*(C`eval\*(C'\fR.
+.Sp
+Note: this doesn't refer to exceptions occured in a \f(CW\*(C`catch\*(C'\fR and \f(CW\*(C`finally\*(C'\fR blocks.
+.IP "\-noret" 4
+.IX Item "-noret"
+Tells Exception::SEH not to install \f(CW\*(C`return\*(C'\fR hook. This makes \f(CW\*(C`try\*(C'\fR blocks behave like
+evals, and context for \f(CW\*(C`return\*(C'\fR is determined by context of \f(CW\*(C`try\*(C'\fR, not by context of sub,
+containing \f(CW\*(C`try\*(C'\fR.
+.SH "DIAGNOSTICS"
+.IX Header "DIAGNOSTICS"
+All compile-time discovered errors are raised through \f(CW\*(C`Carp::croak\*(C'\fR
+with (hopefully) meaningful description.
+.SH "CAVEATS"
+.IX Header "CAVEATS"
+Currently, three subroutines \- try, catch, finally \- are injected into caller's namespace.
+.PP
+Currently, it's impossible to use any other module that hooks \fB\s-1OP_RETURN\s0\fR \s-1OP\s0 on \s-1XS\s0 level \-
+results are unpredictable. This may be fixed in future releases.
+.PP
+Currently, it's probably unsafe to place \f(CW\*(C`try\*(C'\fR/\f(CW\*(C`catch\*(C'\fR blocks around \f(CW\*(C`use\*(C'\fR/\f(CW\*(C`catch\*(C'\fR.
+This needs further testing, and may be fixed in future releases.
+.PP
+Currently, due to way caller is detected, if you place try/catch/finally inside \f(CW\*(C`eval\*(C'\fR block,
+\&\f(CW\*(C`return\*(C'\fR wouldn't work as expected. This will be fixed in future releases.
+.SH "SEE ALSO"
+.IX Header "SEE ALSO"
+TryCatch
+.PP
+Similar semantics, but it takes the whole Moose with itself \- often too much weight.
+Currently lacks finally block and \fB@_\fR access inside try{}. But still, decent choice.
+.PP
+Exception::Class::TryCatch
+.PP
+Ugly syntax. Only Exception::Class\-derived exceptions.
+.PP
+Exception::Class::TCF
+.PP
+Better syntax. Lacks exception lexical in try block, returns from try{} block.
+Still only Exception::Class\-derived exceptions.
+.PP
+Error::TryCatch
+.PP
+Source filter. No finally{} call after \fIreturn()\fR from try.
+.PP
+Error
+.PP
+\&\*(L"Error's syntactic sugar tends to break.\*(R" (c)
+.SH "AUTHOR"
+.IX Header "AUTHOR"
+Sergey Aleynikov <sergey.aleynikov@gmail.com>
+.SH "LICENSE"
+.IX Header "LICENSE"
+Copyright (c) 2009 by Sergey Aleynikov.
+This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+.PP
+Some part for parser are taken from Devel::Declare::Context::Simple, (c) Rhesa Rozendaal (?).
+.PP
+Idea how to set up return hook \- TryCatch, (c) Ash Berlin.

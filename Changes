@@ -38,3 +38,6 @@ Revision history for Exception::SEH.
 0.0201	2009-11-21
 		- explicitly forbid compilation under Win32,
 			as 'return' hooking fails there
+
+0.0202	2011-04-26
+		- do not use core non-exported symbol
